@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIAP BK</title>
+<meta name="description" content="SIAP BK - Sistem Informasi & Administrasi Program Bimbingan dan Konseling SMP Negeri 3 Sepatan Timur">
+<style>
+  html,body{margin:0;height:100%;font-family:Arial,Helvetica,sans-serif;background:#f1f5f9;color:#0f172a}
+  #muat{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center}
+  .putar{width:44px;height:44px;border:4px solid #bfdbfe;border-top-color:#2563eb;border-radius:50%;animation:p 0.9s linear infinite}
+  @keyframes p{to{transform:rotate(360deg)}}
+  h1{margin:0;font-size:26px;color:#1e3a8a}
+  p{margin:0;color:#475569;font-size:14px}
+  .gagal{display:none;max-width:380px}
+  .gagal a,.gagal button{display:inline-block;margin:6px;padding:10px 16px;border-radius:10px;border:0;font-size:14px;font-weight:bold;cursor:pointer;text-decoration:none}
+  .gagal button{background:#2563eb;color:#fff}.gagal a{background:#e2e8f0;color:#0f172a}
+  .kaki{font-size:11px;color:#94a3b8}
+</style>
+</head>
+<body>
+<div id="muat">
+  <div class="putar" id="putar"></div>
+  <h1>SIAP BK</h1>
+  <p id="pesan">Memuat aplikasi&hellip;</p>
+  <div class="gagal" id="gagal">
+    <p>Aplikasi belum bisa dimuat. Periksa koneksi internet lalu coba lagi.</p>
+    <button type="button" onclick="location.reload()">Coba lagi</button>
+    <a id="alt" href="#">Buka cara lama</a>
+  </div>
+  <p class="kaki">By Riki Arifin, S.Psi</p>
+</div>
+<script>
+/* Halaman pembuka SIAP BK. File ini TIDAK perlu diubah setiap kali aplikasi diperbarui:
+   tampilan selalu diambil dari Apps Script versi terbaru (?mode=html), dan semua perintah ke server
+   dikirim lewat doPost TANPA akun Google - jadi Chrome yg login banyak akun tetap bisa membuka. */
+var SIAP_API = 'https://script.google.com/macros/s/AKfycbzysQPMLKHOsPFU12Krp-I5J-sn3o18DTYB8L0h3VBDxj97G3POyR7sQOqj0VyChUFB/exec';
+document.getElementById('alt').href = SIAP_API;
+
+function siapShim() {
+  // Pengganti google.script.run: rantai withSuccessHandler/withFailureHandler/withUserObject lalu
+  // nama fungsi server -> dikirim sbg {fn, args} ke doPost, hasilnya diteruskan ke handler.
+  function kirim(nama, args, st) {
+    fetch(window.SIAP_API, {
+      method: 'POST', credentials: 'omit',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ fn: nama, args: args })
+    }).then(function (r) {
+      if (!r.ok) throw new Error('Server sedang sibuk (' + r.status + '). Coba lagi sebentar.');
+      return r.json();
+    }).then(function (res) {
+      if (res && res.ok) { if (st.ok) st.ok(res.result, st.uo); }
+      else { var e = new Error((res && res.error) || 'Permintaan gagal.'); if (st.gagal) st.gagal(e, st.uo); else console.error(e); }
+    }).catch(function (err) {
+      var e = err instanceof Error ? err : new Error(String(err));
+      if (/Failed to fetch|NetworkError|Load failed/i.test(e.message)) e = new Error('Gagal menghubungi server. Periksa koneksi internet Anda.');
+      if (st.gagal) st.gagal(e, st.uo); else console.error(e);
+    });
+  }
+  function runner(st) {
+    return new Proxy({}, {
+      get: function (_, nama) {
+        if (nama === 'withSuccessHandler') return function (f) { return runner(Object.assign({}, st, { ok: f })); };
+        if (nama === 'withFailureHandler') return function (f) { return runner(Object.assign({}, st, { gagal: f })); };
+        if (nama === 'withUserObject') return function (o) { return runner(Object.assign({}, st, { uo: o })); };
+        if (typeof nama !== 'string' || nama === 'then') return undefined;
+        return function () { kirim(nama, Array.prototype.slice.call(arguments), st); };
+      }
+    });
+  }
+  window.google = window.google || {};
+  window.google.script = {
+    run: runner({}),
+    host: { close: function () {}, setHeight: function () {}, setWidth: function () {}, editor: {} },
+    url: { getLocation: function (cb) { cb({ hash: location.hash.slice(1), parameter: {}, parameters: {} }); } }
+  };
+  window.__siapLewatPembuka = true;
+}
+
+function gagalMuat(err) {
+  document.getElementById('putar').style.display = 'none';
+  document.getElementById('pesan').style.display = 'none';
+  document.getElementById('gagal').style.display = 'block';
+  if (window.console) console.error(err);
+}
+
+fetch(SIAP_API + '?mode=html&t=' + Date.now(), { credentials: 'omit', cache: 'no-store' })
+  .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+  .then(function (html) {
+    if (html.indexOf('<html') === -1) throw new Error('Isi tidak dikenal');
+    var shim = '<script>window.SIAP_API=' + JSON.stringify(SIAP_API) + ';(' + siapShim.toString() + ')();<\/script>';
+    html = html.replace(/<head[^>]*>/i, function (m) { return m + shim; });
+    document.open();
+    document.write(html);
+    document.close();
+  })
+  .catch(gagalMuat);
+</script>
+</body>
+</html>
