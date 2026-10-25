@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SIAP BK</title>
+<link rel="icon" type="image/svg+xml" href="/siap-bk/ikon.svg">
 <meta name="description" content="SIAP BK - Sistem Informasi & Administrasi Program Bimbingan dan Konseling SMP Negeri 3 Sepatan Timur">
 <style>
   html,body{margin:0;height:100%;font-family:Arial,Helvetica,sans-serif;background:#f1f5f9;color:#0f172a}
@@ -41,8 +42,8 @@ var SIAP_LOGO = 'data:image/webp;base64,UklGRoAcAABXRUJQVlA4WAoAAAAwAAAAcAAAnwAA
 var SIAP_API = 'https://script.google.com/macros/s/AKfycbzysQPMLKHOsPFU12Krp-I5J-sn3o18DTYB8L0h3VBDxj97G3POyR7sQOqj0VyChUFB/exec';
 document.getElementById('alt').href = SIAP_API;
 // Logo di layar pembuka + ikon tab (juga dipasang lagi ke halaman aplikasi setelah dimuat).
-var IKON_HTML = SIAP_LOGO ? '<link rel="icon" href="' + SIAP_LOGO + '"><link rel="apple-touch-icon" href="' + SIAP_LOGO + '">' : '';
-if (SIAP_LOGO) { document.getElementById('logo').src = SIAP_LOGO; document.head.insertAdjacentHTML('beforeend', IKON_HTML); }
+var IKON_HTML = '<link rel="icon" type="image/svg+xml" href="/siap-bk/ikon.svg">' + (SIAP_LOGO ? '<link rel="apple-touch-icon" href="' + SIAP_LOGO + '">' : '');
+if (SIAP_LOGO) document.getElementById('logo').src = SIAP_LOGO;
 else document.getElementById('logo').style.display = 'none';
 
 function siapShim() {
