@@ -92,17 +92,57 @@ function gagalMuat(err) {
   if (window.console) console.error(err);
 }
 
-fetch(SIAP_API + '?mode=html&t=' + Date.now(), { credentials: 'omit', cache: 'no-store' })
-  .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
-  .then(function (html) {
-    if (html.indexOf('<html') === -1) throw new Error('Isi tidak dikenal');
-    var shim = IKON_HTML + '<script>window.SIAP_API=' + JSON.stringify(SIAP_API) + ';(' + siapShim.toString() + ')();<\/script>';
-    html = html.replace(/<head[^>]*>/i, function (m) { return m + shim; });
-    document.open();
-    document.write(html);
-    document.close();
-  })
-  .catch(gagalMuat);
+// Tampilan aplikasi disimpan di perangkat (Cache browser). Kunjungan berikutnya langsung tampil dari
+// simpanan, sementara versi terbaru diambil diam-diam dan dipakai pada kunjungan selanjutnya.
+var CACHE_NAMA = 'siapbk-tampilan', CACHE_URL = location.origin + '/__siapbk/tampilan.html';
+function ambilTampilanBaru() {
+  return fetch(SIAP_API + '?mode=html&t=' + Date.now(), { credentials: 'omit', cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+    .then(function (html) { if (html.indexOf('<html') === -1) throw new Error('Isi tidak dikenal'); return html; });
+}
+function simpanTampilan(html) {
+  try {
+    if (!window.caches) return Promise.resolve();
+    return caches.open(CACHE_NAMA).then(function (c) {
+      return c.put(CACHE_URL, new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+    }).catch(function () {});
+  } catch (e) { return Promise.resolve(); }
+}
+function bacaTampilan() {
+  try {
+    if (!window.caches) return Promise.resolve(null);
+    return caches.open(CACHE_NAMA).then(function (c) { return c.match(CACHE_URL); })
+      .then(function (r) { return r ? r.text() : null; }).catch(function () { return null; });
+  } catch (e) { return Promise.resolve(null); }
+}
+// Dijalankan DI DALAM halaman aplikasi (setelah tampil dari simpanan): ambil versi terbaru di latar.
+function segarkanLatar(api, nama, url) {
+  setTimeout(function () {
+    fetch(api + '?mode=html&t=' + Date.now(), { credentials: 'omit', cache: 'no-store' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+      .then(function (html) {
+        if (html.indexOf('<html') === -1 || !window.caches) return;
+        return caches.open(nama).then(function (c) {
+          return c.put(url, new Response(html, { headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+        });
+      }).catch(function () {});
+  }, 4000);
+}
+function tampilkan(html, dariSimpanan) {
+  var shim = IKON_HTML + '<script>window.SIAP_API=' + JSON.stringify(SIAP_API) + ';(' + siapShim.toString() + ')();';
+  if (dariSimpanan) shim += '(' + segarkanLatar.toString() + ')(' + JSON.stringify(SIAP_API) + ',' + JSON.stringify(CACHE_NAMA) + ',' + JSON.stringify(CACHE_URL) + ');';
+  shim += '<\/script>';
+  html = html.replace(/<head[^>]*>/i, function (m) { return m + shim; });
+  document.open();
+  document.write(html);
+  document.close();
+}
+bacaTampilan().then(function (lama) {
+  if (lama && lama.indexOf('<html') !== -1) tampilkan(lama, true);
+  else ambilTampilanBaru().then(function (html) {
+    return simpanTampilan(html).then(function () { tampilkan(html, false); });
+  }).catch(gagalMuat);
+});
 </script>
 </body>
 </html>
